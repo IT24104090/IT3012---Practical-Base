@@ -61,37 +61,42 @@ class VisualGridHuntGame:
         self.collision = False
 
 
-    # Step 1.1 - Partial Observability
     def get_percept(self):
 
-        x, y = self.agent_pos
+    x, y = self.agent_pos
 
-        ahead_x, ahead_y = x, y
+    ahead_x, ahead_y = x, y
 
-        if self.facing == "Up":
-            ahead_y += 1
-        elif self.facing == "Down":
-            ahead_y -= 1
-        elif self.facing == "Left":
-            ahead_x -= 1
-        elif self.facing == "Right":
-            ahead_x += 1
+    if self.facing == "Up":
+        ahead_y += 1
+    elif self.facing == "Down":
+        ahead_y -= 1
+    elif self.facing == "Left":
+        ahead_x -= 1
+    elif self.facing == "Right":
+        ahead_x += 1
 
-        out_of_bounds = (
-            ahead_x < 0 or ahead_x >= self.width or
-            ahead_y < 0 or ahead_y >= self.height
-        )
+    out_of_bounds = (
+        ahead_x < 0 or ahead_x >= self.width or
+        ahead_y < 0 or ahead_y >= self.height
+    )
 
-        wall_ahead = out_of_bounds or (ahead_x, ahead_y) in self.walls
+    wall_ahead = out_of_bounds or (ahead_x, ahead_y) in self.walls
 
-        return {
-            "wall_ahead": wall_ahead,
-            "food_here": (x, y) in self.food_positions,
-            "toxin_here": (x, y) in self.toxic_traps,
-            "collision": self.collision,
-            "score": self.score,
-            "remaining_food": len(self.food_positions)
-        }
+    return {
+    "agent_pos": tuple(self.agent_pos),
+    "wall_ahead": wall_ahead,
+    "food_here": (x, y) in self.food_positions,
+    "toxin_here": (x, y) in self.toxic_traps,
+    "collision": self.collision,
+    "score": self.score,
+    "remaining_food": len(self.food_positions),
+
+    "facing": self.facing,
+    "grid_size": (self.width, self.height),
+    "walls": list(self.walls),
+    "all_food": list(self.food_positions)
+    }
 
 
     # Step 1.2 - Agent actions
