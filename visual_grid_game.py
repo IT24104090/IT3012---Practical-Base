@@ -1,14 +1,23 @@
-# visual_grid_game.py
 import random
 import tkinter as tk
+
 from SimpleReflexAgent import SimpleReflexAgent
 from ModelBasedAgent import ModelBasedAgent
-#lab2 part 1; 
-#1. step 1.1: Add the facing direction, 2.Replace get_percept(), 3.Update execute_action()
+from agent import SearchAgent
+
+
 class VisualGridHuntGame:
     """A flexible Pacman-style grid environment with support for configurable opponents and larger scales."""
 
-    def __init__(self, width=10, height=10, num_food=10, num_opponents=2, custom_walls=None, num_toxic_traps=5):
+    def __init__(
+        self,
+        width=10,
+        height=10,
+        num_food=10,
+        num_opponents=2,
+        custom_walls=None,
+        num_toxic_traps=5,
+    ):
         self.width = width
         self.height = height
         self.agent_pos = [0, 0]
@@ -20,18 +29,22 @@ class VisualGridHuntGame:
             self.walls = {(2, 2), (2, 3), (5, 5), (6, 5), (3, 7)}
 
         self.food_positions = set()
+
         while len(self.food_positions) < num_food:
             fx = random.randint(0, self.width - 1)
             fy = random.randint(0, self.height - 1)
+
             pos_tuple = (fx, fy)
 
             if pos_tuple != (0, 0) and pos_tuple not in self.walls:
                 self.food_positions.add(pos_tuple)
 
         self.opponents = []
+
         while len(self.opponents) < num_opponents:
             ox = random.randint(0, self.width - 1)
             oy = random.randint(0, self.height - 1)
+
             op_pos = [ox, oy]
 
             if (
@@ -46,6 +59,7 @@ class VisualGridHuntGame:
         while len(self.toxic_traps) < num_toxic_traps:
             tx = random.randint(0, self.width - 1)
             ty = random.randint(0, self.height - 1)
+
             trap = (tx, ty)
 
             if (
@@ -60,46 +74,47 @@ class VisualGridHuntGame:
         self.steps = 0
         self.collision = False
 
-
     def get_percept(self):
 
-    x, y = self.agent_pos
+        x, y = self.agent_pos
 
-    ahead_x, ahead_y = x, y
+        ahead_x, ahead_y = x, y
 
-    if self.facing == "Up":
-        ahead_y += 1
-    elif self.facing == "Down":
-        ahead_y -= 1
-    elif self.facing == "Left":
-        ahead_x -= 1
-    elif self.facing == "Right":
-        ahead_x += 1
+        if self.facing == "Up":
+            ahead_y += 1
 
-    out_of_bounds = (
-        ahead_x < 0 or ahead_x >= self.width or
-        ahead_y < 0 or ahead_y >= self.height
-    )
+        elif self.facing == "Down":
+            ahead_y -= 1
 
-    wall_ahead = out_of_bounds or (ahead_x, ahead_y) in self.walls
+        elif self.facing == "Left":
+            ahead_x -= 1
 
-    return {
-    "agent_pos": tuple(self.agent_pos),
-    "wall_ahead": wall_ahead,
-    "food_here": (x, y) in self.food_positions,
-    "toxin_here": (x, y) in self.toxic_traps,
-    "collision": self.collision,
-    "score": self.score,
-    "remaining_food": len(self.food_positions),
+        elif self.facing == "Right":
+            ahead_x += 1
 
-    "facing": self.facing,
-    "grid_size": (self.width, self.height),
-    "walls": list(self.walls),
-    "all_food": list(self.food_positions)
-    }
+        out_of_bounds = (
+            ahead_x < 0
+            or ahead_x >= self.width
+            or ahead_y < 0
+            or ahead_y >= self.height
+        )
 
+        wall_ahead = out_of_bounds or (ahead_x, ahead_y) in self.walls
 
-    # Step 1.2 - Agent actions
+        return {
+            "agent_pos": tuple(self.agent_pos),
+            "wall_ahead": wall_ahead,
+            "food_here": (x, y) in self.food_positions,
+            "toxin_here": (x, y) in self.toxic_traps,
+            "collision": self.collision,
+            "score": self.score,
+            "remaining_food": len(self.food_positions),
+            "facing": self.facing,
+            "grid_size": (self.width, self.height),
+            "walls": list(self.walls),
+            "all_food": list(self.food_positions),
+        }
+
     def execute_action(self, action):
 
         self.steps += 1
@@ -124,12 +139,11 @@ class VisualGridHuntGame:
         elif action == "Right":
             new_pos[0] = min(self.width - 1, new_pos[0] + 1)
 
-
         if tuple(new_pos) in self.walls:
             self.score -= 5
+
         else:
             self.agent_pos = new_pos
-
 
         pos = tuple(self.agent_pos)
 
@@ -137,10 +151,8 @@ class VisualGridHuntGame:
             self.food_positions.remove(pos)
             self.score += 20
 
-
         if pos in self.toxic_traps:
             self.score -= 15
-
 
         for op in self.opponents:
 
@@ -160,11 +172,9 @@ class VisualGridHuntGame:
             elif move == "Right" and op[0] < self.width - 1:
                 op[0] += 1
 
-
             if op == self.agent_pos:
                 self.score -= 50
                 self.collision = True
-
 
     def is_done(self):
 
@@ -176,104 +186,212 @@ class VisualGridHuntGame:
 
 
 class GridGameGUI:
-    """Tkinter wrapper that dynamically scales cell sizes to keep larger grids on screen."""
+    """Tkinter wrapper that dynamically scales cell sizes."""
 
-    def __init__(self, root, width=10, height=10, num_food=12, num_opponents=2, walls=None, num_toxic_traps=5):
+    def __init__(
+        self,
+        root,
+        width=10,
+        height=10,
+        num_food=12,
+        num_opponents=2,
+        walls=None,
+        num_toxic_traps=5,
+    ):
+
         self.root = root
         self.root.title("IT3012 - Scalable Multi-Agent Grid Hunt")
 
-        self.env = VisualGridHuntGame(width=width, height=height, num_food=num_food, num_opponents=num_opponents,
-                                      custom_walls=walls, num_toxic_traps=num_toxic_traps)
+        self.env = VisualGridHuntGame(
+            width=width,
+            height=height,
+            num_food=num_food,
+            num_opponents=num_opponents,
+            custom_walls=walls,
+            num_toxic_traps=num_toxic_traps,
+        )
 
-        # Dynamically calculate cell size so the total canvas fits nicely within a 600x600 window ceiling
         max_canvas_dim = 600
-        self.cell_size = max(20, min(max_canvas_dim // self.env.width, max_canvas_dim // self.env.height))
+
+        self.cell_size = max(
+            20,
+            min(
+                max_canvas_dim // self.env.width,
+                max_canvas_dim // self.env.height,
+            ),
+        )
 
         canvas_w = self.env.width * self.cell_size
         canvas_h = self.env.height * self.cell_size
 
-        self.canvas = tk.Canvas(root, width=canvas_w, height=canvas_h, bg="white")
+        self.canvas = tk.Canvas(
+            root,
+            width=canvas_w,
+            height=canvas_h,
+            bg="white",
+        )
         self.canvas.pack()
 
-        self.label = tk.Label(root, text="Score: 0 | Steps: 0", font=("Arial", 14))
+        self.label = tk.Label(
+            root,
+            text="Score: 0 | Steps: 0",
+            font=("Arial", 14),
+        )
         self.label.pack(pady=10)
 
-        self.btn = tk.Button(root, text="Start Simulation", command=self.run_loop, font=("Arial", 12), bg="#000066",
-                             fg="white")
+        self.btn = tk.Button(
+            root,
+            text="Start Simulation",
+            command=self.run_loop,
+            font=("Arial", 12),
+            bg="#000066",
+            fg="white",
+        )
         self.btn.pack(pady=5)
 
         self.draw_grid()
 
     def draw_grid(self):
+
         self.canvas.delete("all")
 
         for x in range(self.env.width):
             for y in range(self.env.height):
+
                 x1 = x * self.cell_size
                 y1 = (self.env.height - 1 - y) * self.cell_size
                 x2 = x1 + self.cell_size
                 y2 = y1 + self.cell_size
 
-                color = "#f1f5f9" if (x, y) not in self.env.walls else "#64748b"
-                self.canvas.create_rectangle(x1, y1, x2, y2, fill=color, outline="#cbd5e1")
+                color = (
+                    "#f1f5f9"
+                    if (x, y) not in self.env.walls
+                    else "#64748b"
+                )
 
-                # Only draw text if cell is large enough
-                if self.cell_size >= 40 and (x, y) in self.env.walls:
-                    self.canvas.create_text(x1 + self.cell_size / 2, y1 + self.cell_size / 2, text="W", fill="white",
-                                            font=("Arial", 8, "bold"))
+                self.canvas.create_rectangle(
+                    x1,
+                    y1,
+                    x2,
+                    y2,
+                    fill=color,
+                    outline="#cbd5e1",
+                )
 
-        # Step 2.3: Render toxic traps as purple diamond shapes
         for tx, ty in self.env.toxic_traps:
+
             cx = tx * self.cell_size + self.cell_size / 2
-            cy = (self.env.height - 1 - ty) * self.cell_size + self.cell_size / 2
+            cy = (
+                (self.env.height - 1 - ty) * self.cell_size
+                + self.cell_size / 2
+            )
+
             half = self.cell_size * 0.35
+
             points = [
-                cx, cy - half,   # top
-                cx + half, cy,   # right
-                cx, cy + half,   # bottom
-                cx - half, cy,   # left
+                cx, cy - half,
+                cx + half, cy,
+                cx, cy + half,
+                cx - half, cy,
             ]
-            self.canvas.create_polygon(points, fill="#7c3aed", outline="#5b21b6")
+
+            self.canvas.create_polygon(
+                points,
+                fill="#7c3aed",
+                outline="#5b21b6",
+            )
 
         for fx, fy in self.env.food_positions:
+
             offset = self.cell_size * 0.25
+
             x1 = fx * self.cell_size + offset
-            y1 = (self.env.height - 1 - fy) * self.cell_size + offset
-            self.canvas.create_oval(x1, y1, x1 + self.cell_size * 0.5, y1 + self.cell_size * 0.5, fill="#f59e0b",
-                                    outline="#d97706")
+            y1 = (
+                (self.env.height - 1 - fy)
+                * self.cell_size + offset
+            )
+
+            self.canvas.create_oval(
+                x1,
+                y1,
+                x1 + self.cell_size * 0.5,
+                y1 + self.cell_size * 0.5,
+                fill="#f59e0b",
+                outline="#d97706",
+            )
 
         for ox, oy in self.env.opponents:
+
             offset = self.cell_size * 0.2
+
             x1 = ox * self.cell_size + offset
-            y1 = (self.env.height - 1 - oy) * self.cell_size + offset
-            self.canvas.create_rectangle(x1, y1, x1 + self.cell_size * 0.6, y1 + self.cell_size * 0.6, fill="#990000",
-                                         outline="#7a0000")
+            y1 = (
+                (self.env.height - 1 - oy)
+                * self.cell_size + offset
+            )
+
+            self.canvas.create_rectangle(
+                x1,
+                y1,
+                x1 + self.cell_size * 0.6,
+                y1 + self.cell_size * 0.6,
+                fill="#990000",
+                outline="#7a0000",
+            )
 
         ax, ay = self.env.agent_pos
+
         offset = self.cell_size * 0.15
+
         x1 = ax * self.cell_size + offset
-        y1 = (self.env.height - 1 - ay) * self.cell_size + offset
-        self.canvas.create_oval(x1, y1, x1 + self.cell_size * 0.7, y1 + self.cell_size * 0.7, fill="#000066",
-                                outline="#1e3a8a")
+        y1 = (
+            (self.env.height - 1 - ay)
+            * self.cell_size + offset
+        )
+
+        self.canvas.create_oval(
+            x1,
+            y1,
+            x1 + self.cell_size * 0.7,
+            y1 + self.cell_size * 0.7,
+            fill="#000066",
+            outline="#1e3a8a",
+        )
 
     def run_loop(self):
+
         self.btn.config(state="disabled")
 
-        #agent = SimpleReflexAgent() # Step 1.2
-        agent = ModelBasedAgent() #step 1.3
+        # A* Search Agent
+        agent = SearchAgent()
+        agent.active_algo = "AStar"
 
         def step():
+
             if not self.env.is_done():
-                #step 1.2
+
                 percept = self.env.get_percept()
+
                 action = agent.sense_and_act(percept)
+
                 self.env.execute_action(action)
 
                 self.draw_grid()
-                self.label.config(text=f"Score: {self.env.score} | Steps: {self.env.steps} | Action: {action}")
+
+                self.label.config(
+                    text=f"Score: {self.env.score} | Steps: {self.env.steps} | Action: {action}"
+                )
+
                 self.root.after(250, step)
+
             else:
-                end_text = f"Collision! Game Over! Final Score: {self.env.score}" if self.env.collision else f"Finished! Final Score: {self.env.score}"
+
+                end_text = (
+                    f"Collision! Game Over! Final Score: {self.env.score}"
+                    if self.env.collision
+                    else f"Finished! Final Score: {self.env.score}"
+                )
+
                 self.label.config(text=end_text)
                 self.btn.config(state="normal")
 
@@ -281,7 +399,16 @@ class GridGameGUI:
 
 
 if __name__ == "__main__":
+
     root = tk.Tk()
-    # Try a larger grid size like 12x12 with 15 food and 3 opponents!
-    app = GridGameGUI(root, width=12, height=12, num_food=15, num_opponents=0, num_toxic_traps=6)
-    root.mainloop() 
+
+    app = GridGameGUI(
+        root,
+        width=12,
+        height=12,
+        num_food=15,
+        num_opponents=0,
+        num_toxic_traps=6,
+    )
+
+    root.mainloop()

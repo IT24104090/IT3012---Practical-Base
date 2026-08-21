@@ -1,23 +1,44 @@
-# agent.py
-
 from collections import deque
 import heapq
+import math
 
 
 class SearchAgent:
     """
-    Search-based agent supporting BFS, DFS and UCS.
+    Search-based agent supporting BFS, DFS, UCS and A*.
     """
 
     def __init__(self):
+        self.plan = []
+        self.active_algo = "AStar"     # Default algorithm
 
-    self.plan = []
-    self.active_algo = "BFS"
+    # ==================================================
+    # Heuristic Functions
+    # ==================================================
+
+    def manhattan_distance(self, pos, goal):
+        """
+        Manhattan Distance:
+        h(n) = |x1 - x2| + |y1 - y2|
+        """
+        return abs(pos[0] - goal[0]) + abs(pos[1] - goal[1])
+
+    def euclidean_distance(self, pos, goal):
+        """
+        Euclidean Distance:
+        h(n) = sqrt((x1 - x2)^2 + (y1 - y2)^2)
+        """
+        return math.sqrt(
+            (pos[0] - goal[0]) ** 2 +
+            (pos[1] - goal[1]) ** 2
+        )
+
+    # ==================================================
+    # Get Neighbors
+    # ==================================================
 
     def get_neighbors(self, state, walls, width, height):
-        """
-        Returns valid neighboring states.
-        """
+
         x, y = state
 
         moves = [
@@ -40,10 +61,11 @@ class SearchAgent:
 
         return valid
 
+    # ==================================================
+    # BFS
+    # ==================================================
+
     def bfs_search(self, start, goals, walls, width, height):
-        """
-        Breadth First Search (FIFO Queue)
-        """
 
         frontier = deque()
         frontier.append((start, []))
@@ -62,16 +84,18 @@ class SearchAgent:
 
                 if next_state not in reached:
                     reached.add(next_state)
+
                     frontier.append(
                         (next_state, path + [action])
                     )
 
         return []
 
+    # ==================================================
+    # DFS
+    # ==================================================
+
     def dfs_search(self, start, goals, walls, width, height):
-        """
-        Depth First Search (LIFO Stack)
-        """
 
         frontier = [(start, [])]
 
@@ -89,19 +113,25 @@ class SearchAgent:
 
                 if next_state not in reached:
                     reached.add(next_state)
+
                     frontier.append(
                         (next_state, path + [action])
                     )
 
         return []
 
+    # ==================================================
+    # UCS
+    # ==================================================
+
     def ucs_search(self, start, goals, walls, width, height):
-        """
-        Uniform Cost Search
-        """
 
         frontier = []
-        heapq.heappush(frontier, (0, start, []))
+
+        heapq.heappush(
+            frontier,
+            (0, start, [])
+        )
 
         reached = set()
 
@@ -135,65 +165,209 @@ class SearchAgent:
 
         return []
 
-    def sense_and_act(self, percept):
+    # ==================================================
+    # A* Search
+    # ==================================================
 
-    # If no food left
-    if not percept["all_food"]:
-        return "Up"
+    def astar_search(
+            self,
+            start_pos,
+            goal_pos,
+            walls,
+            grid_size,
+            heuristic_type='manhattan'):
 
-    # Create a new plan only when needed
-    if not self.plan:
+        width, height = grid_size
 
-        start = tuple(percept["agent_pos"])
+        priority_queue = []
+        reached_states = set()
 
-        foods = percept["all_food"]
+        # Initial heuristic value
+        if heuristic_type == "euclidean":
+            h_cost = self.euclidean_distance(
+                start_pos,
+                goal_pos
+            )
+        else:
+            h_cost = self.manhattan_distance(
+                start_pos,
+                goal_pos
+            )
 
-        walls = set(percept["walls"])
+        g_cost = 0
+        f_cost = g_cost + h_cost
 
-        width, height = percept["grid_size"]
-
-        # Find closest food using Manhattan distance
-        target_food = min(
-            foods,
-            key=lambda food: abs(food[0] - start[0]) +
-                             abs(food[1] - start[1])
+        heapq.heappush(
+            priority_queue,
+            (
+                f_cost,
+                g_cost,
+                start_pos,
+                []
+            )
         )
 
-        goals = {target_food}
+        while priority_queue:
 
-        # Select search algorithm
-        if self.active_algo == "DFS":
+            f_cost, g_cost, current_pos, path_taken = \
+                heapq.heappop(priority_queue)
 
-            self.plan = self.dfs_search(
-                start,
-                goals,
-                walls,
-                width,
-                height
+            if current_pos == goal_pos:
+                return path_taken
+
+            if current_pos in reached_states:
+                continue
+
+            reached_states.add(current_pos)
+
+            for action, neighbor in self.get_neighbors(
+                    current_pos,
+                    walls,
+                    width,
+                    height):
+
+                if neighbor in reached_states:
+                    continue
+
+                new_g = g_cost + 1
+
+                if heuristic_type == "euclidean":
+                    new_h = self.euclidean_distance(
+                        neighbor,
+                        goal_pos
+                    )
+                else:
+                    new_h = self.manhattan_distance(
+                        neighbor,
+                        goal_pos
+                    )
+
+                new_f = new_g + new_h
+
+                heapq.heappush(
+                    priority_queue,
+                    (
+                        new_f,
+                        new_g,
+                        neighbor,
+                        path_taken + [action]
+                    )
+                )
+
+        return []
+
+    # ==================================================
+    # Sense and Act
+    # ==================================================
+
+    def sense_and_act(self, percept):
+
+        # No food left
+        if not percept["all_food"]:
+            return "Up"
+
+        # Generate a fresh plan only if needed
+        if not self.plan:
+
+            start = tuple(percept["agent_pos"])
+
+            foods = percept["all_food"]
+
+            walls = set(percept["walls"])
+
+            width, height = percept["grid_size"]
+
+            # Closest food using Manhattan distance
+            target_food = min(
+                foods,
+                key=lambda food:
+                self.manhattan_distance(
+                    start,
+                    food
+                )
             )
 
-        elif self.active_algo == "UCS":
+            goals = {target_food}
 
-            self.plan = self.ucs_search(
-                start,
-                goals,
-                walls,
-                width,
-                height
-            )
+            # DFS
+            if self.active_algo == "DFS":
 
-        else:  # BFS
+                self.plan = self.dfs_search(
+                    start,
+                    goals,
+                    walls,
+                    width,
+                    height
+                )
 
-            self.plan = self.bfs_search(
-                start,
-                goals,
-                walls,
-                width,
-                height
-            )
+            # UCS
+            elif self.active_algo == "UCS":
 
-    # Execute next step in the plan
-    if self.plan:
-        return self.plan.pop(0)
+                self.plan = self.ucs_search(
+                    start,
+                    goals,
+                    walls,
+                    width,
+                    height
+                )
 
-    return "Up"
+            # A*
+            elif self.active_algo == "AStar":
+
+                self.plan = self.astar_search(
+                    start_pos=start,
+                    goal_pos=target_food,
+                    walls=walls,
+                    grid_size=(width, height),
+                    heuristic_type="manhattan"
+                )
+
+            # BFS
+            else:
+
+                self.plan = self.bfs_search(
+                    start,
+                    goals,
+                    walls,
+                    width,
+                    height
+                )
+
+        # Execute next action
+        if self.plan:
+            return self.plan.pop(0)
+
+        return "Up"
+
+
+# ==================================================
+# Test
+# ==================================================
+
+if __name__ == "__main__":
+
+    agent = SearchAgent()
+
+    start = (0, 0)
+    goal = (3, 4)
+
+    print(
+        "Manhattan:",
+        agent.manhattan_distance(start, goal)
+    )
+
+    print(
+        "Euclidean:",
+        agent.euclidean_distance(start, goal)
+    )
+
+    path = agent.astar_search(
+        start_pos=start,
+        goal_pos=goal,
+        walls=set(),
+        grid_size=(10, 10),
+        heuristic_type="manhattan"
+    )
+
+    print("A* Path:", path)
+    print("Path Length:", len(path))
