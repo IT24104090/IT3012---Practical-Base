@@ -2,6 +2,8 @@ from collections import deque
 import heapq
 import math
 
+from logic_engine import KnowledgeBase
+
 
 class SearchAgent:
     """
@@ -10,24 +12,40 @@ class SearchAgent:
 
     def __init__(self):
         self.plan = []
-        self.active_algo = "AStar"     # Default algorithm
+        self.active_algo = "AStar"
+
+        # ==================================================
+        # Knowledge Base
+        # ==================================================
+
+        self.kb = KnowledgeBase()
+
+        # Rule 1:
+        # TargetVisible ∧ HasDust => SafeToEngage
+
+        self.kb.tell_rule(
+            ["TargetVisible", "HasDust"],
+            "SafeToEngage"
+        )
+
+        # Rule 2:
+        # SafeToEngage ∧ BloodseekerMissing => Retreat
+
+        self.kb.tell_rule(
+            ["SafeToEngage", "BloodseekerMissing"],
+            "Retreat"
+        )
 
     # ==================================================
     # Heuristic Functions
     # ==================================================
 
     def manhattan_distance(self, pos, goal):
-        """
-        Manhattan Distance:
-        h(n) = |x1 - x2| + |y1 - y2|
-        """
+
         return abs(pos[0] - goal[0]) + abs(pos[1] - goal[1])
 
     def euclidean_distance(self, pos, goal):
-        """
-        Euclidean Distance:
-        h(n) = sqrt((x1 - x2)^2 + (y1 - y2)^2)
-        """
+
         return math.sqrt(
             (pos[0] - goal[0]) ** 2 +
             (pos[1] - goal[1]) ** 2
@@ -83,6 +101,7 @@ class SearchAgent:
                     state, walls, width, height):
 
                 if next_state not in reached:
+
                     reached.add(next_state)
 
                     frontier.append(
@@ -112,6 +131,7 @@ class SearchAgent:
                     state, walls, width, height):
 
                 if next_state not in reached:
+
                     reached.add(next_state)
 
                     frontier.append(
@@ -166,7 +186,7 @@ class SearchAgent:
         return []
 
     # ==================================================
-    # A* Search
+    # A* Search + Knowledge Base Reasoning
     # ==================================================
 
     def astar_search(
@@ -182,13 +202,15 @@ class SearchAgent:
         priority_queue = []
         reached_states = set()
 
-        # Initial heuristic value
         if heuristic_type == "euclidean":
+
             h_cost = self.euclidean_distance(
                 start_pos,
                 goal_pos
             )
+
         else:
+
             h_cost = self.manhattan_distance(
                 start_pos,
                 goal_pos
@@ -226,17 +248,43 @@ class SearchAgent:
                     width,
                     height):
 
+                # =========================================
+                # LAB 5 KNOWLEDGE-BASED FEASIBILITY CHECK
+                # =========================================
+
+                self.kb.clear_facts()
+
+                # Example percepts for the current tile
+
+                if neighbor == goal_pos:
+                    self.kb.tell_fact("TargetVisible")
+
+                self.kb.tell_fact("HasDust")
+
+                if neighbor[0] % 2 == 0:
+                    self.kb.tell_fact("BloodseekerMissing")
+
+                self.kb.forward_chain()
+
+                # Skip infeasible tile
+
+                if "Retreat" in self.kb.facts:
+                    continue
+
                 if neighbor in reached_states:
                     continue
 
                 new_g = g_cost + 1
 
                 if heuristic_type == "euclidean":
+
                     new_h = self.euclidean_distance(
                         neighbor,
                         goal_pos
                     )
+
                 else:
+
                     new_h = self.manhattan_distance(
                         neighbor,
                         goal_pos
@@ -262,11 +310,9 @@ class SearchAgent:
 
     def sense_and_act(self, percept):
 
-        # No food left
         if not percept["all_food"]:
             return "Up"
 
-        # Generate a fresh plan only if needed
         if not self.plan:
 
             start = tuple(percept["agent_pos"])
@@ -277,7 +323,6 @@ class SearchAgent:
 
             width, height = percept["grid_size"]
 
-            # Closest food using Manhattan distance
             target_food = min(
                 foods,
                 key=lambda food:
@@ -289,7 +334,6 @@ class SearchAgent:
 
             goals = {target_food}
 
-            # DFS
             if self.active_algo == "DFS":
 
                 self.plan = self.dfs_search(
@@ -300,7 +344,6 @@ class SearchAgent:
                     height
                 )
 
-            # UCS
             elif self.active_algo == "UCS":
 
                 self.plan = self.ucs_search(
@@ -311,7 +354,6 @@ class SearchAgent:
                     height
                 )
 
-            # A*
             elif self.active_algo == "AStar":
 
                 self.plan = self.astar_search(
@@ -322,7 +364,6 @@ class SearchAgent:
                     heuristic_type="manhattan"
                 )
 
-            # BFS
             else:
 
                 self.plan = self.bfs_search(
@@ -333,7 +374,6 @@ class SearchAgent:
                     height
                 )
 
-        # Execute next action
         if self.plan:
             return self.plan.pop(0)
 
@@ -341,7 +381,7 @@ class SearchAgent:
 
 
 # ==================================================
-# Test
+# TEST
 # ==================================================
 
 if __name__ == "__main__":
@@ -351,15 +391,11 @@ if __name__ == "__main__":
     start = (0, 0)
     goal = (3, 4)
 
-    print(
-        "Manhattan:",
-        agent.manhattan_distance(start, goal)
-    )
+    print("Manhattan:",
+          agent.manhattan_distance(start, goal))
 
-    print(
-        "Euclidean:",
-        agent.euclidean_distance(start, goal)
-    )
+    print("Euclidean:",
+          agent.euclidean_distance(start, goal))
 
     path = agent.astar_search(
         start_pos=start,
